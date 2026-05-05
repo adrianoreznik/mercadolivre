@@ -1,11 +1,11 @@
-// Vercel Serverless Function para buscar produtos no Mercado Livre
+// Vercel Serverless Function para buscar produtos no Mercado Livre (SEM autenticação)
+
 export default async function handler(req, res) {
-    // Permitir CORS
+    // CORS
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-    // Handle OPTIONS request
     if (req.method === 'OPTIONS') {
         return res.status(200).end();
     }
@@ -15,45 +15,59 @@ export default async function handler(req, res) {
     }
 
     try {
-        const { q, limit = 50, sort, shipping, condition, DEAL } = req.query;
+        // 📥 Query params
+        const {
+            q = "notebook",
+            limit = 50,
+            sort,
+            shipping,
+            condition,
+            category
+        } = req.query;
 
-        if (!q) {
-            return res.status(400).json({ error: 'Query parameter is required' });
-        }
-
-        // Construir URL da API do Mercado Livre
+        // 🔧 Montar parâmetros
         const params = new URLSearchParams({
-            q: q,
+            q,
             limit: limit.toString()
         });
 
         if (sort) params.append('sort', sort);
         if (shipping) params.append('shipping', shipping);
         if (condition) params.append('condition', condition);
-        if (DEAL) params.append('DEAL', DEAL);
+        if (category) params.append('category', category);
 
+        // 🌐 Endpoint público do Mercado Livre
         const url = `https://api.mercadolibre.com/sites/MLB/search?${params.toString()}`;
 
-        // Fazer requisição para a API do Mercado Livre
+        // 🚀 Requisição
         const response = await fetch(url, {
             headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': 'application/json'
+                "User-Agent": "Mozilla/5.0",
+                "Accept": "application/json"
             }
         });
 
         if (!response.ok) {
-            throw new Error(`API returned ${response.status}`);
+            const errorText = await response.text();
+            console.error('❌ Erro na API:', response.status, errorText);
+
+            return res.status(response.status).json({
+                error: "Erro ao buscar produtos",
+                status: response.status,
+                details: errorText
+            });
         }
 
         const data = await response.json();
 
-        // Retornar dados
+        // 🎯 Retorno
         return res.status(200).json(data);
+
     } catch (error) {
-        console.error('Error fetching from Mercado Livre:', error);
+        console.error('❌ Erro interno:', error);
+
         return res.status(500).json({
-            error: 'Failed to fetch products',
+            error: 'Internal Server Error',
             message: error.message
         });
     }
